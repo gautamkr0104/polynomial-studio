@@ -57,6 +57,8 @@ def submit_render():
             "color": colors_list[i] if i < len(colors_list) else "#00e5ff",
             "thickness": thicknesses[i] if i < len(thicknesses) else 4,
             "opacity": opacities_list[i] if i < len(opacities_list) else 1.0,
+            "is_implicit": parsed.get("is_implicit", False),
+            "implicit_expr": parsed.get("implicit_expr"),
         })
 
     # Get render config from quality preset

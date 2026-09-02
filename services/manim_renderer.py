@@ -40,6 +40,49 @@ def _build_color_dict(theme: dict) -> dict:
     }
 
 
+def _compute_implicit_contour(implicit_expr, x_min=-6, x_max=6, y_min=-6, y_max=6, num_points=400):
+    """Compute contour segments for an implicit equation F(x,y) = 0 using matplotlib."""
+    import numpy as np
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        x_sym, y_sym = sp.symbols("x y")
+        x_arr = np.linspace(x_min, x_max, num_points)
+        y_arr = np.linspace(y_min, y_max, num_points)
+        X, Y = np.meshgrid(x_arr, y_arr)
+
+        f = sp.lambdify((x_sym, y_sym), implicit_expr, modules=["numpy"])
+        Z = f(X, Y)
+        Z = np.where(np.isfinite(Z), Z, np.nan)
+
+        fig, ax = plt.subplots()
+        cs = ax.contour(X, Y, Z, levels=[0])
+        plt.close(fig)
+
+        segments_x = []
+        segments_y = []
+        if hasattr(cs, 'allsegs') and cs.allsegs:
+            for level_segs in cs.allsegs:
+                for seg in level_segs:
+                    if len(seg) > 1:
+                        segments_x.append(seg[:, 0].tolist())
+                        segments_y.append(seg[:, 1].tolist())
+        elif hasattr(cs, 'collections'):
+            for collection in cs.collections:
+                for p in collection.get_paths():
+                    vertices = p.vertices
+                    if len(vertices) > 1:
+                        segments_x.append(vertices[:, 0].tolist())
+                        segments_y.append(vertices[:, 1].tolist())
+
+        return {"segments_x": segments_x, "segments_y": segments_y}
+    except Exception as e:
+        logger.warning(f"Implicit contour computation failed: {e}")
+        return {"segments_x": [], "segments_y": []}
+
+
 def generate_manim_scene(
     polynomials: list[dict],
     render_config: dict,
@@ -57,6 +100,13 @@ def generate_manim_scene(
     w = render_config.get("width", 1920)
     h = render_config.get("height", 1080)
 
+    # Pre-compute contour data for implicit polynomials
+    contour_data = {}
+    for i, poly in enumerate(polynomials):
+        if poly.get("is_implicit") and poly.get("implicit_expr") is not None:
+            contour = _compute_implicit_contour(poly["implicit_expr"])
+            contour_data[i] = contour
+
     poly_lines = []
     for i, poly in enumerate(polynomials):
         poly_lines.append({
@@ -66,6 +116,7 @@ def generate_manim_scene(
             "thickness": poly.get("thickness", 4),
             "opacity": poly.get("opacity", 1.0),
             "latex": poly.get("latex", ""),
+            "is_implicit": poly.get("is_implicit", False),
         })
 
     show_roots = animation_options.get("show_roots", True)
@@ -94,6 +145,7 @@ def generate_manim_scene(
         show_labels=show_labels,
         sequential=sequential,
         scene_id=scene_id,
+        contour_data=contour_data,
     )
 
     with open(scene_path, "w", encoding="utf-8") as f:
@@ -107,6 +159,7 @@ def _build_scene_source(
     poly_lines, colors, w, h,
     show_roots, show_extrema, show_y_intercept, show_equation,
     explain_mode, draw_speed, show_labels, sequential, scene_id,
+    contour_data=None,
 ):
     """
     Build complete Manim scene source with auto-following tracer dot animation.
@@ -120,10 +173,12 @@ def _build_scene_source(
             "stroke_width": p["thickness"],
             "stroke_opacity": p["opacity"],
             "latex": p["latex"],
+            "is_implicit": p.get("is_implicit", False),
         })
 
     # JSON-safe embedding
     poly_specs_json = json.dumps(poly_specs)
+    contour_data_json = json.dumps(contour_data or {})
 
     # Build source using string concatenation to avoid f-string brace issues
     source = (
@@ -139,6 +194,7 @@ def _build_scene_source(
         '\n'
         '# ── Configuration ──────────────────────────────────────────────\n'
         'POLY_SPECS = json.loads(' + repr(poly_specs_json) + ')\n'
+        'CONTOUR_DATA = json.loads(' + repr(contour_data_json) + ')\n'
         '\n'
         'THEME_BG = "' + colors["bg"] + '"\n'
         'THEME_CURVE_PRIMARY = "' + colors["curve_primary"] + '"\n'
@@ -161,8 +217,28 @@ def _build_scene_source(
         'FRAME_HEIGHT = ' + str(h) + '\n'
         '\n'
         '\n'
-        'def _make_curve(spec, axes, x_lo, x_hi):\n'
-        '    """Build a ParametricFunction from a polynomial spec."""\n'
+        'def _make_curve(spec, axes, x_lo, x_hi, idx):\n'
+        '    """Build a curve from a polynomial spec.\n'
+        '    For implicit curves, draw pre-computed contour segments.\n'
+        '    For explicit curves, use ParametricFunction."""\n'
+        '    if spec.get("is_implicit") and idx in CONTOUR_DATA:\n'
+        '        contour = CONTOUR_DATA[idx]\n'
+        '        segs_x = contour.get("segments_x", [])\n'
+        '        segs_y = contour.get("segments_y", [])\n'
+        '        group = VGroup()\n'
+        '        for sx, sy in zip(segs_x, segs_y):\n'
+        '            points = [axes.c2p(px, py) for px, py in zip(sx, sy)]\n'
+        '            if len(points) >= 2:\n'
+        '                path = VMobject(\n'
+        '                    color=spec["color"],\n'
+        '                    stroke_width=spec.get("stroke_width", 4),\n'
+        '                    stroke_opacity=spec.get("stroke_opacity", 1.0),\n'
+        '                )\n'
+        '                path.set_points_as_corners(points)\n'
+        '                group.add(path)\n'
+        '        if len(group) == 0:\n'
+        '            group.add(Dot(axes.c2p(0, 0), radius=0, opacity=0))\n'
+        '        return group, None\n'
         '    expr = sp.sympify(spec["expr_str"])\n'
         '    f = sp.lambdify(sp.Symbol("x"), expr, modules=["numpy"])\n'
         '    def param_func(t):\n'
@@ -203,6 +279,8 @@ def _build_scene_source(
         '        y_min, y_max = -6, 6\n'
         '        all_y = []\n'
         '        for spec in POLY_SPECS:\n'
+        '            if spec.get("is_implicit"):\n'
+        '                continue\n'
         '            expr = sp.sympify(spec["expr_str"])\n'
         '            f = sp.lambdify(sp.Symbol("x"), expr, modules=["numpy"])\n'
         '            xs = np.linspace(x_min, x_max, 400)\n'
@@ -320,10 +398,21 @@ def _build_scene_source(
         '        all_coord_texts = []\n'
         '\n'
         '        for i, spec in enumerate(POLY_SPECS):\n'
-        '            curve, f = _make_curve(spec, axes, x_min, x_max)\n'
+        '            curve, f = _make_curve(spec, axes, x_min, x_max, i)\n'
         '            color = spec["color"]\n'
+        '            is_imp = spec.get("is_implicit", False)\n'
         '            graph_mobjects.append(curve)\n'
-        '            graph_functions.append((sp.sympify(spec["expr_str"]), f, color))\n'
+        '            if f is not None:\n'
+        '                graph_functions.append((sp.sympify(spec["expr_str"]), f, color))\n'
+        '\n'
+        '            if is_imp:\n'
+        '                # Implicit curves: simple fade-in, no tracer\n'
+        '                all_draw_anims.append(None)\n'
+        '                all_tracer_dots.append(None)\n'
+        '                all_traces.append(None)\n'
+        '                all_guides.append(None)\n'
+        '                all_coord_texts.append(None)\n'
+        '                continue\n'
         '\n'
         '            # ── Tracer dot ──────────────────────────────────\n'
         '            tracer = Dot(\n'
@@ -396,8 +485,15 @@ def _build_scene_source(
         '            return updater\n'
         '\n'
         '        # ── Collect all highlight points per curve ──────────────\n'
-        '        highlight_data = []\n'
-        '        for expr, f, color in graph_functions:\n'
+        '        highlight_data = {}\n'
+        '        _gf_idx = 0\n'
+        '        for _pi, _spec in enumerate(POLY_SPECS):\n'
+        '            if _spec.get("is_implicit", False):\n'
+        '                continue\n'
+        '            if _gf_idx >= len(graph_functions):\n'
+        '                break\n'
+        '            expr, f, color = graph_functions[_gf_idx]\n'
+        '            _gf_idx += 1\n'
         '            points = []\n'
         '            if SHOW_ROOTS:\n'
         '                try:\n'
@@ -446,10 +542,21 @@ def _build_scene_source(
         '                except Exception:\n'
         '                    pass\n'
         '            points.sort(key=lambda p: p["x"])\n'
-        '            highlight_data.append(points)\n'
+        '            highlight_data[_pi] = points\n'
         '\n'
         '        # ── Run animation per curve ────────────────────────────\n'
-        '        for idx, (curve, tracer_grp, trace, guide, coord_txt) in enumerate(all_draw_anims):\n'
+        '        for idx, anim_entry in enumerate(all_draw_anims):\n'
+        '            if anim_entry is None:\n'
+        '                # Implicit curve: just fade in\n'
+        '                curve = graph_mobjects[idx]\n'
+        '                color = POLY_SPECS[idx]["color"]\n'
+        '                self.play(Create(curve), run_time=DRAW_SPEED)\n'
+        '                self.wait(0.3)\n'
+        '                if SEQUENTIAL_DRAW and idx < len(all_draw_anims) - 1:\n'
+        '                    self.wait(0.4)\n'
+        '                continue\n'
+        '\n'
+        '            curve, tracer_grp, trace, guide, coord_txt = anim_entry\n'
         '            tracer, tracer_glow = all_tracer_dots[idx]\n'
         '            coord_updater = _make_coord_updater(coord_txt, tracer, axes)\n'
         '            guide_updater = _make_guide_updater(guide, tracer, axes)\n'
@@ -472,11 +579,10 @@ def _build_scene_source(
         '            ]\n'
         '\n'
         '            # Auto-pulse at key points while drawing\n'
-        '            pts = highlight_data[idx] if idx < len(highlight_data) else []\n'
+        '            pts = highlight_data.get(idx, [])\n'
         '            pulse_anims = []\n'
         '            for pt in pts:\n'
         '                px = pt["x"]\n'
-        '                # Create a small flash at the point when tracer reaches it\n'
         '                flash = Dot(\n'
         '                    axes.c2p(px, pt["y"]),\n'
         '                    color=pt["color"],\n'
@@ -484,7 +590,6 @@ def _build_scene_source(
         '                    fill_opacity=0.0,\n'
         '                    z_index=8,\n'
         '                )\n'
-        '                # Use a special indication at the right moment\n'
         '                pulse_anims.append((px, flash, pt))\n'
         '\n'
         '            # Draw the curve with tracer\n'
