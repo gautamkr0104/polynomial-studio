@@ -9,6 +9,11 @@ import sys
 import logging
 from datetime import datetime
 
+# Clear PYTHONHOME/PYTHONPATH before anything else to prevent
+# dvisvgm (LaTeX SVG converter) from crashing with 'Failed to import encodings'
+os.environ.pop("PYTHONHOME", None)
+os.environ.pop("PYTHONPATH", None)
+
 from flask import Flask, render_template, jsonify
 
 import config as cfg

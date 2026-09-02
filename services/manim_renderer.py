@@ -396,9 +396,13 @@ def _build_scene_source(
         '        if SHOW_EQUATION:\n'
         '            for spec in POLY_SPECS:\n'
         '                latex_str = spec.get("latex", "")\n'
+        '                eq_text = None\n'
         '                if latex_str:\n'
-        '                    eq_text = MathTex(latex_str, font_size=int(24 * font_scale))\n'
-        '                else:\n'
+        '                    try:\n'
+        '                        eq_text = MathTex(latex_str, font_size=int(24 * font_scale))\n'
+        '                    except Exception:\n'
+        '                        eq_text = None\n'
+        '                if eq_text is None:\n'
         '                    eq_text = Text(spec["expr_str"], font_size=int(24 * font_scale))\n'
         '                eq_text.set_color(THEME_TEXT)\n'
         '                equation_mobjects.append(eq_text)\n'
@@ -754,6 +758,15 @@ def render_scene(
     run_env = os.environ.copy()
     run_env.pop("PYTHONHOME", None)
     run_env.pop("PYTHONPATH", None)
+
+    # Ensure MiKTeX/TeX Live bin dirs are on PATH for dvisvgm/latex
+    miktex_bin = r"D:\tools\latex\miktex\bin\x64"
+    texlive_bin = r"D:\texlive\bin\win64"
+    path_dirs = run_env.get("PATH", "")
+    for d in [miktex_bin, texlive_bin]:
+        if os.path.isdir(d) and d not in path_dirs:
+            path_dirs = d + ";" + path_dirs
+    run_env["PATH"] = path_dirs
 
     start_time = time.time()
     try:
