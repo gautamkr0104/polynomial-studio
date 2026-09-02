@@ -239,10 +239,33 @@ def _build_scene_source(
         '        if len(group) == 0:\n'
         '            group.add(Dot(axes.c2p(0, 0), radius=0, opacity=0))\n'
         '        return group, None\n'
+        '    # Also check contour data even if is_implicit flag is not set\n'
+
+        '    if idx in CONTOUR_DATA:\n'
+        '        contour = CONTOUR_DATA[idx]\n'
+        '        segs_x = contour.get("segments_x", [])\n'
+        '        segs_y = contour.get("segments_y", [])\n'
+        '        if segs_x and segs_y:\n'
+        '            group = VGroup()\n'
+        '            for sx, sy in zip(segs_x, segs_y):\n'
+        '                points = [axes.c2p(px, py) for px, py in zip(sx, sy)]\n'
+        '                if len(points) >= 2:\n'
+        '                    path = VMobject(\n'
+        '                        color=spec["color"],\n'
+        '                        stroke_width=spec.get("stroke_width", 4),\n'
+        '                        stroke_opacity=spec.get("stroke_opacity", 1.0),\n'
+        '                    )\n'
+        '                    path.set_points_as_corners(points)\n'
+        '                    group.add(path)\n'
+        '            if len(group) > 0:\n'
+        '                return group, None\n'
         '    expr = sp.sympify(spec["expr_str"])\n'
         '    f = sp.lambdify(sp.Symbol("x"), expr, modules=["numpy"])\n'
         '    def param_func(t):\n'
-        '        y_val = float(f(t))\n'
+        '        try:\n'
+        '            y_val = float(f(t))\n'
+        '        except (TypeError, ValueError):\n'
+        '            y_val = 0.0\n'
         '        if not np.isfinite(y_val):\n'
         '            y_val = 0.0\n'
         '        return axes.c2p(t, y_val)\n'
@@ -372,10 +395,11 @@ def _build_scene_source(
         '        equation_mobjects = []\n'
         '        if SHOW_EQUATION:\n'
         '            for spec in POLY_SPECS:\n'
-        '                eq_text = Text(\n'
-        '                    spec["expr_str"],\n'
-        '                    font_size=int(24 * font_scale),\n'
-        '                )\n'
+        '                latex_str = spec.get("latex", "")\n'
+        '                if latex_str:\n'
+        '                    eq_text = MathTex(latex_str, font_size=int(24 * font_scale))\n'
+        '                else:\n'
+        '                    eq_text = Text(spec["expr_str"], font_size=int(24 * font_scale))\n'
         '                eq_text.set_color(THEME_TEXT)\n'
         '                equation_mobjects.append(eq_text)\n'
         '            if len(equation_mobjects) == 1:\n'
@@ -725,9 +749,11 @@ def render_scene(
 
     logger.info(f"Running manim command: {' '.join(cmd)}")
 
-    # Set PYTHONHOME so the venv uses correct stdlib (not the system Python 3.14).
+    # Clear PYTHONHOME and PYTHONPATH so dvisvgm (LaTeX SVG renderer)
+    # doesn't inherit a mismatched venv path that breaks its Python.
     run_env = os.environ.copy()
-    run_env["PYTHONHOME"] = cfg.PYTHONHOME
+    run_env.pop("PYTHONHOME", None)
+    run_env.pop("PYTHONPATH", None)
 
     start_time = time.time()
     try:

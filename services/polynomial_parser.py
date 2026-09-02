@@ -123,14 +123,32 @@ def _try_solve_equation(cleaned: str):
         if x in sol.free_symbols and sol.is_polynomial(x):
             return (sol, True, False, None)
 
-    # Then any solution that depends on x (non-polynomial like sqrt(x))
+    # For non-polynomial solutions (radicals, etc.), check if they
+    # actually evaluate numerically. If not, treat as implicit.
+    import numpy as _np
     for sol in solutions:
         if x in sol.free_symbols:
-            return (sol, False, False, None)
+            try:
+                f_test = sp.lambdify(x, sol, modules=["numpy"])
+                val = f_test(1.0)
+                # If it returns a complex or symbolic result, treat as implicit
+                if isinstance(val, complex) or not _np.isfinite(float(val)):
+                    continue
+                # If it's an expression that still contains symbols, skip
+                if sol.free_symbols - {x}:
+                    continue
+                return (sol, False, False, None)
+            except Exception:
+                continue
 
     # Constant solutions
     for sol in solutions:
-        return (sol, True, False, None)
+        if not (sol.free_symbols - {x}):
+            try:
+                float(sol)
+                return (sol, True, False, None)
+            except Exception:
+                pass
 
     # Fallback to implicit
     return (None, False, True, implicit_expr)

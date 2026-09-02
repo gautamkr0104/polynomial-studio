@@ -297,6 +297,27 @@ Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
 
 </details>
 
+<details>
+<summary><strong>❌ dvisvgm PYTHONHOME error during rendering</strong></summary>
+
+If you see `Fatal Python error: Failed to import encodings module` during
+video rendering, dvisvgm (LaTeX SVG converter) is picking up a mismatched
+PYTHONHOME. The app now automatically clears PYTHONHOME/PYTHONPATH when
+running Manim, but if the error persists:
+
+```powershell
+# Clear the environment variables before starting the server
+Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+.\.venv\Scripts\Activate.ps1
+python app.py
+```
+
+Also ensure MiKTeX or TeX Live is installed and `latex --version` works in
+your terminal. Manim requires LaTeX for rendering math equations.
+
+</details>
+
 ---
 
 ## 📁 Project Architecture
