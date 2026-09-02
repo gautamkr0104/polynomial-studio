@@ -1,0 +1,57 @@
+{
+  "job_0f7a370994d2": {
+    "job_id": "job_0f7a370994d2",
+    "status": "failed",
+    "progress": 0,
+    "video_path": null,
+    "video_filename": null,
+    "error": "Server restarted during render.",
+    "created_at": "2026-08-31T00:21:23.506885",
+    "completed_at": null,
+    "duration": 0
+  },
+  "job_6f82ec6f8433": {
+    "job_id": "job_6f82ec6f8433",
+    "status": "failed",
+    "progress": 0,
+    "video_path": null,
+    "video_filename": null,
+    "error": "Server restarted during render.",
+    "created_at": "2026-08-31T21:04:48.242436",
+    "completed_at": null,
+    "duration": 0
+  },
+  "job_eafdd9f1e7a1": {
+    "job_id": "job_eafdd9f1e7a1",
+    "status": "failed",
+    "progress": 0,
+    "video_path": null,
+    "video_filename": null,
+    "error": "Python path configuration:\n  PYTHONHOME = 'D:\\vs code projects\\polynomial-studio\\.venv'\n  PYTHONPATH = (not set)\n  program name = 'C:\\Users\\DELL\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\python.exe'\n  isolated = 0\n  environment = 1\n  user site = 1\n  safe_path = 0\n  import site = 1\n  is in build tree = 0\n  stdlib dir = 'D:\\vs code projects\\polynomial-studio\\.venv\\Lib'\n  sys.path[0] = (not set)\n  sys._base_executable = 'C:\\\\Users\\\\DELL\\\\AppData\\\\Roaming\\\\uv\\\\python\\\\cpython-3.13-windows-x86_64-none\\\\python.exe'\n  sys.base_prefix = 'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv'\n  sys.base_exec_prefix = 'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv'\n  sys.platlibdir = 'DLLs'\n  sys.executable = 'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv\\\\Scripts\\\\python.exe'\n  sys.prefix = 'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv'\n  sys.exec_prefix = 'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv'\n  sys.path = [\n    'C:\\\\Users\\\\DELL\\\\AppData\\\\Roaming\\\\uv\\\\python\\\\cpython-3.13-windows-x86_64-none\\\\python313.zip',\n    'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv\\\\DLLs',\n    'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv\\\\Lib',\n    'D:\\\\vs code projects\\\\polynomial-studio\\\\.venv\\\\Scripts',\n  ]\nFatal Python error: Failed to import encodings module\nPython runtime state: core initialized\nModuleNotFoundError: No module named 'encodings'\n\nCurrent thread 0x00003d40 (most recent call first):\n  <no Python frame>\n",
+    "created_at": "2026-09-02T15:21:33.822515",
+    "completed_at": null,
+    "duration": 0.1574251651763916
+  },
+  "job_a271a6cfddde": {
+    "job_id": "job_a271a6cfddde",
+    "status": "failed",
+    "progress": 0,
+    "video_path": null,
+    "video_filename": null,
+    "error": "Server restarted during render.",
+    "created_at": "2026-09-02T15:29:49.300198",
+    "completed_at": null,
+    "duration": 0
+  },
+  "job_9f10033493ef": {
+    "job_id": "job_9f10033493ef",
+    "status": "complete",
+    "progress": 100,
+    "video_path": "D:\\vs code projects\\polynomial-studio\\renders\\videos\\polynomial_animation_job_9f10033493ef.mp4",
+    "video_filename": "polynomial_animation_job_9f10033493ef.mp4",
+    "error": null,
+    "created_at": "2026-09-02T15:40:31.494781",
+    "completed_at": "2026-09-02T15:41:34.185310",
+    "duration": 62.64163255691528
+  }
+}

@@ -1,0 +1,178 @@
+===============================================
+  Polynomial Studio - Setup & Run Guide
+===============================================
+
+--- STEP 1: Navigate to project folder ---
+cd "D:\vs code projects\polynomial-studio"
+
+--- STEP 2: Create Python 3.13 virtual environment ---
+# The venv MUST use Python 3.13 (not 3.14) because manim is incompatible with 3.14.
+# The venv is created inside the project as .venv
+uv venv --python 3.13 .venv
+
+--- STEP 3: Patch activate.ps1 (one-time setup) ---
+# This clears PYTHONHOME automatically on activation to prevent stdlib contamination.
+# Run this ONCE after creating the venv:
+$actPath = ".venv\Scripts\Activate.ps1"
+$content = Get-Content $actPath -Raw
+$patch = '`n# Clear PYTHONHOME to prevent stdlib contamination from other Python versions`n$env:PYTHONHOME = ""`n'
+if ($content -notmatch 'PYTHONHOME = ""') {
+    $content = $content -replace '(\$env:PATH = "\$env:VIRTUAL_ENV/Scripts;` \+ \$env:PATH)', "$patch`n`$1"
+    Set-Content $actPath $content -NoNewline
+    Write-Host "Patched activate.ps1 - PYTHONHOME will now be cleared on activation." -ForegroundColor Green
+} else {
+    Write-Host "activate.ps1 already patched." -ForegroundColor Yellow
+}
+
+#crucialuse these 2 line
+Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+
+
+--- STEP 4: Activate the venv ---
+.venv\Scripts\Activate.ps1
+# PYTHONHOME is now set to "" automatically
+
+--- STEP 5: Install Python dependencies ---
+# Use uv pip (not bare pip) since uv venv doesn't include pip by default
+uv pip install -r requirements.txt
+# This installs: Flask, sympy, numpy, matplotlib, manim
+
+--- STEP 6: Verify dependencies ---
+python -m manim --version
+# Should print: Manim Community v0.21.0
+
+python -c "import matplotlib; print('matplotlib', matplotlib.__version__)"
+# Should print: matplotlib 3.x.x
+
+--- STEP 7: Run the Flask server ---
+python app.py
+
+--- STEP 8: Open in browser ---
+# Navigate to: http://127.0.0.1:5000
+
+===============================================
+  Quick Start (copy-paste all at once)
+===============================================
+
+# Open PowerShell as Administrator, then:
+cd "D:\vs code projects\polynomial-studio"
+uv venv --python 3.13 .venv
+.venv\Scripts\Activate.ps1
+uv pip install -r requirements.txt
+python app.py
+
+===============================================
+  What's New: Implicit Equation Support
+===============================================
+
+Polynomial Studio now supports implicit equations like:
+
+  (x^2 + y^2 - 1)^3 - x^2*y^3 = 0    (heart curve)
+  x^2 + y^2 = 1                       (circle)
+  x^3 + y^3 = 3*x*y                   (folium of Descartes)
+  x^4 + y^4 = 1                       (squircle)
+
+How it works:
+  - The parser detects equations that can't be solved for y explicitly
+  - It stores the equation as F(x, y) = 0 (implicit form)
+  - The preview uses matplotlib's contour tracing to plot the zero-level set
+  - The canvas renders contour segments as smooth paths
+
+Supported input formats:
+  - Explicit:  y = x^2, f(x) = x^3 - 3x, x^2
+  - Implicit:  x^2 + y^2 = 25, (x^2+y^2-1)^3 = x^2*y^3
+  - Either side: x = y^2, y^2 = x
+
+===============================================
+  Project Structure
+===============================================
+
+D:\vs code projects\polynomial-studio\
+  app.py                 Flask application entry point
+  config.py              Configuration (paths, themes, quality presets)
+  requirements.txt       Python dependencies
+  .env                   Environment config (PYTHONHOME cleared)
+  .gitignore             Git ignore rules
+  routes/
+    graph.py             API: /api/validate, /api/analyze, /api/preview
+    render.py            API: /api/render, /api/render-status, /api/video
+  services/
+    polynomial_parser.py    Equation parsing & validation
+    polynomial_analyzer.py  Math analysis & graph data (explicit + implicit)
+    manim_renderer.py       Manim scene generation
+    render_manager.py       Background render job management
+  templates/
+    index.html           Main UI template
+  static/
+    js/app.js            Frontend application
+    css/style.css        Styles
+  renders/               Output videos & previews
+  logs/                  Application logs
+  manim_scenes/          Generated Manim scene files
+  .venv/                 Python 3.13 virtual environment (project-local)
+
+===============================================
+  Render a test animation from CLI
+===============================================
+
+# Activate the venv first, then:
+python -c "
+from services.manim_renderer import generate_manim_scene, render_scene
+sp = generate_manim_scene(
+    [{'expression_str':'x**2','latex':'x^2','color':'#00e5ff','thickness':4,'opacity':1.0}],
+    {'width':1080,'height':1920,'fps':30,'manim_quality':'-qm'},
+    {'bg':'#0a0a1a','curve_primary':'#00e5ff','curve_secondary':'#e040fb',
+     'accent':'#7c4dff','grid':'#1a1a3e','text':'#e0e0e0','root_color':'#ff4081','glow':True},
+    {'show_roots':True,'show_extrema':True,'show_y_intercept':True,'show_equation':True,
+     'explain_mode':False,'draw_speed':2.0,'show_labels':True,'sequential':False},
+    'manim_scenes'
+)
+r = render_scene(sp, {'manim_quality':'-qm','width':1080,'height':1920},
+    'renders', timeout=300)
+print(f'Success: {r[\"success\"]}, Duration: {r[\"duration\"]:.1f}s')
+"
+
+===============================================
+  Troubleshooting
+===============================================
+
+--- PYTHONHOME ---
+# PYTHONHOME is cleared automatically when you activate the venv.
+# If you're NOT using the venv, set it manually:
+$env:PYTHONHOME = ""
+
+--- If 'pip' is not recognized ---
+# uv venv doesn't include pip by default. Use uv pip instead:
+uv pip install -r requirements.txt
+
+--- If manim fails to import ---
+# Make sure the venv is activated:
+.venv\Scripts\Activate.ps1
+
+--- If sympy is broken (AttributeError: module 'sympy' has no attribute 'Symbol') ---
+uv pip install --force-reinstall --no-deps sympy
+
+--- If matplotlib contour returns no segments ---
+# Ensure matplotlib >= 3.8 is installed:
+uv pip install --upgrade matplotlib
+
+--- If render times out ---
+# Check the render timeout in config.py (default: 300 seconds)
+# Try lowering quality: change manim_quality from "-qh" to "-qm" or "-ql"
+
+--- If Flask server won't start ---
+# Kill any existing process on port 5000:
+netstat -ano | findstr :5000
+taskkill /PID <process_id> /F
+
+--- If the heart curve or other implicit equations don't show ---
+# Make sure y range is wide enough (default -6 to 6 may be too wide)
+# Try setting x: -2 to 2, y: -2 to 2 for the heart curve
+
+--- If Python picks up wrong stdlib (ImportError from system Python 3.14) ---
+# Clear PYTHONHOME before running:
+Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+# Then re-activate the venv:
+.venv\Scripts\Activate.ps1

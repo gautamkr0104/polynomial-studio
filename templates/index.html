@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polynomial Studio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- MathJax for LaTeX rendering -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+</head>
+<body>
+    <!-- ═══ Header ═══ -->
+    <header class="app-header">
+        <div class="header-left">
+            <h1 class="app-title">Polynomial <span class="accent">Studio</span></h1>
+            <p class="app-subtitle">Visualize &bull; Analyze &bull; Animate</p>
+        </div>
+        <div class="header-right">
+            <span class="status-badge {{ 'ready' if manim_available else 'not-ready' }}" id="manimStatus">
+                {% if manim_available %}
+                    ● Manim Ready
+                {% else %}
+                    ● Manim Not Found
+                {% endif %}
+            </span>
+            <span class="status-badge {{ 'ready' if ffmpeg_available else 'not-ready' }}" id="ffmpegStatus">
+                {% if ffmpeg_available %}
+                    ● FFmpeg
+                {% else %}
+                    ● FFmpeg Missing
+                {% endif %}
+            </span>
+        </div>
+    </header>
+
+    <!-- ═══ Main Layout ═══ -->
+    <main class="app-main">
+        <!-- ─── Left Panel: Controls ─── -->
+        <aside class="panel panel-left" id="controlPanel">
+            <!-- Equation Editor -->
+            <section class="panel-section">
+                <h2 class="section-title">Equations</h2>
+                <div id="equationList" class="equation-list">
+                    <!-- Equations inserted by JS -->
+                </div>
+                <button class="btn btn-secondary btn-full" id="btnAddEquation" title="Add another polynomial">
+                    + Add Polynomial
+                </button>
+            </section>
+
+            <!-- Graph Controls -->
+            <section class="panel-section">
+                <h2 class="section-title">Graph Range</h2>
+                <div class="control-grid">
+                    <label class="control-label">
+                        X Min
+                        <input type="number" id="xMin" value="-6" step="1" class="input-number">
+                    </label>
+                    <label class="control-label">
+                        X Max
+                        <input type="number" id="xMax" value="6" step="1" class="input-number">
+                    </label>
+                    <label class="control-label">
+                        Y Min
+                        <input type="number" id="yMin" value="-6" step="1" class="input-number">
+                    </label>
+                    <label class="control-label">
+                        Y Max
+                        <input type="number" id="yMax" value="6" step="1" class="input-number">
+                    </label>
+                </div>
+                <button class="btn btn-ghost btn-full" id="btnAutoRange" title="Auto-detect graph range">Auto Range</button>
+            </section>
+
+            <!-- Theme -->
+            <section class="panel-section">
+                <h2 class="section-title">Theme</h2>
+                <div class="theme-grid" id="themeGrid">
+                    <!-- Theme buttons inserted by JS -->
+                </div>
+            </section>
+
+            <!-- Quality / Format -->
+            <section class="panel-section">
+                <h2 class="section-title">Output Format</h2>
+                <div class="preset-grid" id="presetGrid">
+                    <!-- Quality presets inserted by JS -->
+                </div>
+            </section>
+
+            <!-- Animation Options -->
+            <section class="panel-section">
+                <h2 class="section-title">Animation Options</h2>
+                <div class="option-list">
+                    <label class="option-toggle">
+                        <input type="checkbox" id="optShowEquation" checked>
+                        <span>Show Equation</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="optShowRoots" checked>
+                        <span>Show Roots</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="optShowExtrema" checked>
+                        <span>Show Extrema</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="optShowYIntercept" checked>
+                        <span>Show Y-intercept</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="optShowLabels" checked>
+                        <span>Show Labels</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="optExplainMode">
+                        <span>Explain Mode</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="optSequential">
+                        <span>Sequential Drawing</span>
+                    </label>
+                </div>
+                <label class="control-label" style="margin-top: 0.75rem;">
+                    Draw Speed
+                    <input type="range" id="optDrawSpeed" min="0.5" max="5" step="0.25" value="2" class="input-range">
+                    <span class="range-value" id="drawSpeedValue">2.0s</span>
+                </label>
+            </section>
+
+            <!-- Action Buttons -->
+            <section class="panel-section action-buttons">
+                <button class="btn btn-primary btn-large" id="btnPreview">
+                    <span class="btn-icon">⚡</span> Generate
+                </button>
+                <button class="btn btn-accent btn-large" id="btnRender">
+                    <span class="btn-icon">🎬</span> Animate
+                </button>
+                <button class="btn btn-ghost btn-full" id="btnReset">Reset</button>
+            </section>
+        </aside>
+
+        <!-- ─── Center: Preview & Video ─── -->
+        <section class="panel panel-center">
+            <!-- Graph Preview -->
+            <div class="preview-container" id="previewContainer">
+                <div class="preview-placeholder" id="previewPlaceholder">
+                    <div class="placeholder-icon">📈</div>
+                    <p>Enter a polynomial and click <strong>Generate</strong></p>
+                    <p class="placeholder-hint">Try: y = x³ - 3x² + 2x</p>
+                </div>
+                <canvas id="graphCanvas" class="graph-canvas" style="display:none;"></canvas>
+            </div>
+
+            <!-- Video Player -->
+            <div class="video-container" id="videoContainer" style="display:none;">
+                <div class="video-header">
+                    <span class="video-badge">✓ Animation Complete</span>
+                </div>
+                <video id="videoPlayer" controls class="video-player"></video>
+                <div class="video-meta" id="videoMeta"></div>
+                <div class="video-actions">
+                    <button class="btn btn-primary" id="btnDownload">
+                        <span class="btn-icon">⬇</span> Download MP4
+                    </button>
+                    <button class="btn btn-ghost" id="btnRenderAgain">Render Again</button>
+                </div>
+            </div>
+
+            <!-- Rendering Progress -->
+            <div class="render-progress" id="renderProgress" style="display:none;">
+                <div class="progress-header">
+                    <span class="progress-icon">🎬</span>
+                    <span id="progressText">Generating Manim scene...</span>
+                </div>
+                <div class="progress-bar-track">
+                    <div class="progress-bar-fill" id="progressBar" style="width: 10%;"></div>
+                </div>
+                <p class="progress-hint">This may take 30–120 seconds depending on complexity.</p>
+            </div>
+
+            <!-- Error Display -->
+            <div class="error-display" id="errorDisplay" style="display:none;">
+                <div class="error-icon">⚠</div>
+                <p class="error-message" id="errorMessage"></p>
+                <p class="error-hint" id="errorHint"></p>
+            </div>
+        </section>
+
+        <!-- ─── Right Panel: Analysis ─── -->
+        <aside class="panel panel-right" id="analysisPanel">
+            <section class="panel-section">
+                <h2 class="section-title">Polynomial Analysis</h2>
+                <div id="analysisContent" class="analysis-content">
+                    <div class="analysis-placeholder">
+                        <p>Analysis will appear here after generating a preview.</p>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
